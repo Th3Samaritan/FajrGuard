@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "FajrGuard",
+    "slug": "fajrguard",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "fajrguard",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      "expo-notifications",
+      "expo-task-manager",
+      "expo-background-fetch",
+      "expo-sqlite",
+      "react-native-fast-tflite"
+    ],
+    "android": {
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "VIBRATE",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_EXACT_ALARM",
+        "WAKE_LOCK",
+        "RECEIVE_BOOT_COMPLETED",
+        "FOREGROUND_SERVICE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "VIBRATE",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_EXACT_ALARM",
+        "WAKE_LOCK",
+        "RECEIVE_BOOT_COMPLETED",
+        "FOREGROUND_SERVICE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK"
+      ],
+      "package": "com.anonymous.fajrguard"
+    },
+    "ios": {
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera is used for wudu verification - detecting moisture on your face after ablution.",
+        "NSMicrophoneUsageDescription": "Not used."
+      }
+    }
+  }
+}
