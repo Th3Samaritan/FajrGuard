@@ -1,13 +1,16 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { usePrayerTimes } from '../../hooks/usePrayerTimes';
 import { usePrayerStore } from '../../store/prayerStore';
+import { useAlarmStore } from '../../store/alarmStore';
 import { CountdownTimer } from '../../components/CountdownTimer';
 import { PrayerCard } from '../../components/PrayerCard';
 import { IslamicPattern } from '../../components/IslamicPattern';
 import { PRAYER_ARABIC } from '../../constants/prayers';
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const { prayerTimes, getNextPrayer } = usePrayerTimes();
   const { completedPrayers, isCompleted } = usePrayerStore();
   const nextPrayer = getNextPrayer();
@@ -49,6 +52,22 @@ export default function DashboardScreen() {
             Loading prayer times...
           </Text>
         )}
+      </View>
+
+      <View className="px-4 mt-8 mb-4 items-center">
+        <Text className="text-[rgba(240,230,211,0.3)] text-xs mb-2">TESTING</Text>
+        <TouchableOpacity
+          className="bg-[#C9A227] px-8 py-4 rounded-full active:opacity-80"
+          onPress={() => {
+            const testPrayer = nextPrayer?.prayerId || 'fajr';
+            useAlarmStore.getState().startAlarm(testPrayer);
+            router.push('/alarm');
+          }}
+        >
+          <Text className="text-[#050C16] text-base font-bold">
+            Test Alarm
+          </Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );

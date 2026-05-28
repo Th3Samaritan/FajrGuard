@@ -5,6 +5,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useWuduDetector } from '../hooks/useWuduDetector';
 import { useFaceVerification } from '../hooks/useFaceVerification';
 import { useAlarmStore } from '../store/alarmStore';
+import { useUserStore } from '../store/userStore';
 import { logPrayer } from '../services/storage';
 import { extractFaceNetEmbedding } from '../services/faceNetModel';
 import { WuduCamera } from '../components/WuduCamera';
@@ -12,7 +13,8 @@ import { WuduCamera } from '../components/WuduCamera';
 export default function VerifyScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
-  const { confidence, processFrame, reset, modelState } = useWuduDetector();
+  const wuduThreshold = useUserStore((s) => s.wuduThreshold);
+  const { confidence, processFrame, reset, modelState } = useWuduDetector(wuduThreshold);
   const { init, verify, reset: resetFace } = useFaceVerification();
   const { setWuduVerified, currentPrayer } = useAlarmStore();
   const [stage, setStage] = useState<'identity' | 'wetness' | 'done'>('identity');
@@ -52,7 +54,7 @@ export default function VerifyScreen() {
         identityFrameCount.current++;
         setIdentityProgress(Math.min(1, identityFrameCount.current / 5));
 
-        if (matched || identityFrameCount.current >= 10) {
+        if (matched) {
           setStage('wetness');
         }
         return;

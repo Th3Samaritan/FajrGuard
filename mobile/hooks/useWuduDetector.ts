@@ -8,7 +8,7 @@ interface WuduResult {
   stage: 'identity' | 'wetness' | 'done';
 }
 
-const WUDU_THRESHOLD = 0.82;
+const DEFAULT_THRESHOLD = 0.82;
 const HOLD_DURATION_MS = 2500;
 const INFERENCE_FPS = 5;
 const MODEL_INPUT_SIZE = 224;
@@ -81,12 +81,13 @@ function resizeAndNormalize(
   return dst;
 }
 
-export function useWuduDetector() {
+export function useWuduDetector(threshold: number = DEFAULT_THRESHOLD) {
   const [confidence, setConfidence] = useState(0);
   const [modelState, setModelState] = useState<'loading' | 'ready' | 'fallback'>('loading');
   const modelRef = useRef<any>(null);
   const holdStartRef = useRef<number | null>(null);
   const lastFrameTime = useRef(0);
+  const confidenceRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,7 +125,7 @@ export function useWuduDetector() {
     const fpsInterval = 1000 / INFERENCE_FPS;
 
     if (now - lastFrameTime.current < fpsInterval) {
-      return { isVerified: false, confidence, stage: 'wetness' };
+      return { isVerified: false, confidence: confidenceRef.current, stage: 'wetness' };
     }
     lastFrameTime.current = now;
 
@@ -147,9 +148,10 @@ export function useWuduDetector() {
       score = photometricWetnessScore(frameData, width, height);
     }
 
+    confidenceRef.current = score;
     setConfidence(score);
 
-    if (score >= WUDU_THRESHOLD) {
+    if (score >= threshold) {
       if (holdStartRef.current === null) {
         holdStartRef.current = now;
       } else if (now - holdStartRef.current >= HOLD_DURATION_MS) {
@@ -160,13 +162,14 @@ export function useWuduDetector() {
     }
 
     return { isVerified: false, confidence: score, stage: 'wetness' };
-  }, [confidence, modelState, preprocessToBuffer]);
+  }, [threshold, modelState, preprocessToBuffer]);
 
   const reset = useCallback(() => {
+    confidenceRef.current = 0;
     setConfidence(0);
     holdStartRef.current = null;
     lastFrameTime.current = 0;
   }, []);
 
-  return { confidence, threshold: WUDU_THRESHOLD, modelState, processFrame, reset };
+  return { confidence, threshold, modelState, processFrame, reset };
 }

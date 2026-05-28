@@ -6,12 +6,7 @@ import { PrayerTime } from '../store/prayerStore';
 import { PRAYER_NAMES, PRAYER_ARABIC } from '../constants/prayers';
 
 const ALARM_CHECK_TASK = 'ALARM_CHECK_TASK';
-
-interface PrayerScheduleIntent {
-  prayerId: string;
-  time: string;
-  timestamp: number;
-}
+const ALARM_CHANNEL_ID = 'prayer_alarm';
 
 async function getTodaysPrayerTimes(): Promise<PrayerTime[]> {
   try {
@@ -54,27 +49,35 @@ async function getTodaysPrayerTimes(): Promise<PrayerTime[]> {
 async function schedulePrayerNotifications(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 
+  const { useUserStore } = await import('../store/userStore');
+  const { alarmLeadMinutes } = useUserStore.getState();
+  const leadMs = alarmLeadMinutes * 60 * 1000;
+
   const prayerTimes = await getTodaysPrayerTimes();
   if (prayerTimes.length === 0) return;
 
   for (const pt of prayerTimes) {
-    const triggerDate = new Date(pt.timestamp);
+    const triggerDate = new Date(pt.timestamp - leadMs);
     const now = new Date();
 
     if (triggerDate <= now) continue;
+
+    const isFajr = pt.prayerId === 'fajr';
 
     await Notifications.scheduleNotificationAsync({
       content: {
         title: `${PRAYER_NAMES[pt.prayerId] || pt.prayerId} Prayer`,
         body: `Time for ${PRAYER_ARABIC[pt.prayerId] || pt.prayerId} prayer. Tap to respond.`,
         data: { prayerId: pt.prayerId, type: 'prayer_alarm' },
-        sound: 'default',
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-        categoryIdentifier: 'prayer_alarm',
+        sound: isFajr ? 'adhan_fajr.wav' : 'adhan.wav',
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        vibrate: [0, 500, 200, 500, 200, 500],
+        categoryIdentifier: ALARM_CHANNEL_ID,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: triggerDate,
+        channelId: ALARM_CHANNEL_ID,
       },
     });
   }

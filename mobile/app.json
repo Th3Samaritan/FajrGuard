@@ -12,8 +12,7 @@
       "expo-notifications",
       "expo-task-manager",
       "expo-background-fetch",
-      "expo-sqlite",
-      "react-native-fast-tflite"
+      "expo-sqlite"
     ],
     "android": {
       "permissions": [
@@ -25,22 +24,11 @@
         "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED",
         "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_SPECIAL_USE",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "POST_NOTIFICATIONS",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.WAKE_LOCK",
-        "CAMERA",
-        "RECORD_AUDIO",
-        "VIBRATE",
-        "SCHEDULE_EXACT_ALARM",
-        "USE_EXACT_ALARM",
-        "WAKE_LOCK",
-        "RECEIVE_BOOT_COMPLETED",
-        "FOREGROUND_SERVICE",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "POST_NOTIFICATIONS",
+        "USE_FULL_SCREEN_INTENT",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.WAKE_LOCK"
       ],
@@ -51,6 +39,13 @@
         "NSCameraUsageDescription": "Camera is used for wudu verification - detecting moisture on your face after ablution.",
         "NSMicrophoneUsageDescription": "Not used."
       }
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bbc1fcf1-2995-4777-92e6-e0ddb8369c07"
+      }
+    },
+    "owner": "th3samaritan"
   }
 }

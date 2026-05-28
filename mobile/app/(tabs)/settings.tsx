@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Alert, Modal, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useUserStore } from '../../store/userStore';
+import { useAlarmStore } from '../../store/alarmStore';
 import { clearFaceEmbedding } from '../../services/faceEmbedding';
 import { IslamicPattern } from '../../components/IslamicPattern';
+import { PRAYERS } from '../../constants/prayers';
 
 const CALCULATION_METHODS = [
   { value: 0, label: 'Shia Ithna-Ansari' },
@@ -23,6 +26,7 @@ function getMethodLabel(value: number): string {
 }
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const {
     wuduThreshold, setWuduThreshold,
     calculationMethod, setCalculationMethod,
@@ -164,6 +168,31 @@ export default function SettingsScreen() {
             </Text>
           </View>
         )}
+
+        <View className="bg-[rgba(45,212,191,0.08)] rounded-xl p-4 border border-[rgba(45,212,191,0.2)] mt-4">
+          <Text className="text-[#2DD4BF] text-sm mb-3" style={{ fontFamily: 'JetBrainsMono' }}>
+            Developer: Test Alarm
+          </Text>
+          <View className="gap-2">
+            {PRAYERS.map((prayer) => (
+              <View
+                key={prayer.id}
+                className="bg-[rgba(45,212,191,0.12)] rounded-lg p-3 active:opacity-60"
+                onTouchEnd={() => {
+                  useAlarmStore.getState().startAlarm(prayer.id);
+                  router.push('/alarm');
+                }}
+              >
+                <Text className="text-[#2DD4BF] text-center text-sm">
+                  Trigger {prayer.name} Alarm {prayer.emoji}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <Text className="text-[rgba(45,212,191,0.4)] text-xs text-center mt-3">
+            Instantly fires the alarm for testing. Remove before production.
+          </Text>
+        </View>
       </View>
 
       <Modal visible={showMethodPicker} transparent animationType="fade">

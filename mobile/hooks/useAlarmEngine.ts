@@ -1,10 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Audio } from 'expo-av';
-import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import { useAlarmStore } from '../store/alarmStore';
 import { useUserStore } from '../store/userStore';
-import { usePrayerStore } from '../store/prayerStore';
-import { PRAYER_NAMES } from '../constants/prayers';
 
 const ESCALATION_SCHEDULE = [
   { seconds: 0,   volumeMultiplier: 0.4 },
@@ -38,34 +36,49 @@ export function useAlarmEngine() {
   const startEscalation = useCallback(async () => {
     await stopAudio();
 
-    const audioFile = currentPrayer === 'fajr'
-      ? require('../assets/audio/adhan_fajr.wav')
-      : require('../assets/audio/adhan.wav');
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: true,
+        interruptionModeIOS: InterruptionModeIOS.DuckOthers,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: false,
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+      });
+    } catch {}
 
-    const { sound } = await Audio.Sound.createAsync(audioFile, {
-      isLooping: true,
-      volume: 0.4,
-      shouldPlay: true,
-    });
-    soundRef.current = sound;
+    try {
+      const audioFile = currentPrayer === 'fajr'
+        ? require('../assets/audio/adhan_fajr.wav')
+        : require('../assets/audio/adhan.wav');
 
-    const startTime = Date.now();
-    escalationTimer.current = setInterval(() => {
-      const elapsed = (Date.now() - startTime) / 1000;
-      let level = 0;
-      for (let i = ESCALATION_SCHEDULE.length - 1; i >= 0; i--) {
-        if (elapsed >= ESCALATION_SCHEDULE[i].seconds) {
-          level = i;
-          break;
+      const { sound } = await Audio.Sound.createAsync(audioFile, {
+        isLooping: true,
+        volume: 0.4,
+        shouldPlay: true,
+      });
+      soundRef.current = sound;
+
+      const startTime = Date.now();
+      escalationTimer.current = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        let level = 0;
+        for (let i = ESCALATION_SCHEDULE.length - 1; i >= 0; i--) {
+          if (elapsed >= ESCALATION_SCHEDULE[i].seconds) {
+            level = i;
+            break;
+          }
         }
-      }
-      setEscalationLevel(level);
+        setEscalationLevel(level);
 
-      const config = ESCALATION_SCHEDULE[level];
-      if (soundRef.current) {
-        soundRef.current.setVolumeAsync(config.volumeMultiplier);
-      }
-    }, 1000);
+        const config = ESCALATION_SCHEDULE[level];
+        if (soundRef.current) {
+          soundRef.current.setVolumeAsync(config.volumeMultiplier).catch(() => {});
+        }
+      }, 1000);
+    } catch (err) {
+      console.warn('Failed to start alarm audio:', err);
+    }
   }, [currentPrayer, stopAudio, setEscalationLevel]);
 
   const stopAlarm = useCallback(async () => {
