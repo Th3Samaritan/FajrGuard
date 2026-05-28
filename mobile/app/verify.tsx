@@ -22,6 +22,7 @@ export default function VerifyScreen() {
   const cameraRef = useRef<CameraView>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const identityFrameCount = useRef(0);
+  const identityMatchCount = useRef(0);
 
   useEffect(() => {
     init();
@@ -50,11 +51,19 @@ export default function VerifyScreen() {
 
       if (stage === 'identity') {
         const embedding = await extractFaceNetEmbedding(bytes, photo.width, photo.height);
+        if (!embedding) return;
+
         const matched = await verify(embedding);
         identityFrameCount.current++;
         setIdentityProgress(Math.min(1, identityFrameCount.current / 5));
 
         if (matched) {
+          identityMatchCount.current++;
+        } else {
+          identityMatchCount.current = Math.max(0, identityMatchCount.current - 1);
+        }
+
+        if (identityMatchCount.current >= 3) {
           setStage('wetness');
         }
         return;

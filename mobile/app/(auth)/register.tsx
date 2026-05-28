@@ -39,6 +39,14 @@ export default function RegisterScreen() {
           bytes[j] = binary.charCodeAt(j);
         }
         const embedding = await extractFaceNetEmbedding(bytes, photo.width, photo.height);
+        if (!embedding) {
+          Alert.alert(
+            'Face Model Not Available',
+            'The on-device face recognition model could not be loaded. Face verification will not work.'
+          );
+          setCapturing(false);
+          return;
+        }
         embeddings.push(embedding);
       }
     }

@@ -65,7 +65,7 @@ function normalizeFaceNet(rgb: Uint8Array, size: number): Float32Array {
 
 export async function extractFaceNetEmbedding(
   frameData: Uint8Array, frameWidth: number, frameHeight: number
-): Promise<number[]> {
+): Promise<number[] | null> {
   const model = await loadFaceNetModel();
 
   if (model) {
@@ -78,7 +78,7 @@ export async function extractFaceNetEmbedding(
     }
   }
 
-  return extractVisualFingerprint(frameData, frameWidth, frameHeight);
+  return null;
 }
 
 function extractVisualFingerprint(

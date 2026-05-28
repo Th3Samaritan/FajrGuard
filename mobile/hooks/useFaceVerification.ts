@@ -1,9 +1,9 @@
 import { useRef, useCallback, useState } from 'react';
 import { loadFaceEmbedding, cosineSimilarity } from '../services/faceEmbedding';
-import { loadFaceNetModel, getEmbeddingDimension } from '../services/faceNetModel';
+import { loadFaceNetModel, isTfliteAvailable } from '../services/faceNetModel';
 
-const FACE_MATCH_THRESHOLD_FACENET = 0.75;
-const FACE_MATCH_THRESHOLD_FALLBACK = 0.60;
+const FACE_MATCH_THRESHOLD_FACENET = 0.85;
+const FACE_MATCH_THRESHOLD_FALLBACK = 0.95;
 
 export function useFaceVerification() {
   const [isVerified, setIsVerified] = useState(false);
@@ -26,14 +26,14 @@ export function useFaceVerification() {
     }
     if (!registeredEmbedding.current) return false;
 
+    if (!isTfliteAvailable() || usingFallback) {
+      return false;
+    }
+
     const sim = cosineSimilarity(liveEmbedding, registeredEmbedding.current);
     setSimilarity(sim);
 
-    const threshold = usingFallback
-      ? FACE_MATCH_THRESHOLD_FALLBACK
-      : FACE_MATCH_THRESHOLD_FACENET;
-
-    const matched = sim >= threshold;
+    const matched = sim >= FACE_MATCH_THRESHOLD_FACENET;
     setIsVerified(matched);
     return matched;
   }, [init, usingFallback]);
