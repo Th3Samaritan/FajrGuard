@@ -8,7 +8,7 @@ import { useAlarmStore } from '../store/alarmStore';
 import { useUserStore } from '../store/userStore';
 import { logPrayer } from '../services/storage';
 import { extractFaceNetEmbedding } from '../services/faceNetModel';
-import { detectFaces } from '../services/faceDetector';
+import { detectFaces, getLastFaceBounds } from '../services/faceDetector';
 import { WuduCamera } from '../components/WuduCamera';
 
 export default function VerifyScreen() {
@@ -51,7 +51,10 @@ export default function VerifyScreen() {
       }
 
       if (stage === 'identity') {
-        const embedding = await extractFaceNetEmbedding(bytes, photo.width, photo.height);
+        const faceBounds = await detectFaces(photo.uri);
+        if (!faceBounds) return;
+
+        const embedding = await extractFaceNetEmbedding(bytes, photo.width, photo.height, faceBounds);
         if (!embedding) return;
 
         const matched = await verify(embedding);
@@ -65,9 +68,9 @@ export default function VerifyScreen() {
         }
 
         if (identityMatchCount.current >= 3) {
-          const bounds = await detectFaces(bytes, photo.width, photo.height);
-          if (bounds) {
-            setFaceBounds(bounds);
+          const wuduBounds = getLastFaceBounds();
+          if (wuduBounds) {
+            setFaceBounds(wuduBounds);
           }
           setStage('wetness');
         }

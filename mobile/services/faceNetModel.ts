@@ -1,6 +1,6 @@
 declare function require(path: string): number;
 
-import { detectFaces, cropFaceRegion } from './faceDetector';
+import { cropFaceRegion, FaceBounds } from './faceDetector';
 
 const FACENET_INPUT_SIZE = 160;
 const EMBEDDING_DIM = 512;
@@ -30,31 +30,6 @@ export async function loadFaceNetModel(): Promise<any> {
   }
 }
 
-function cropCenterFace(
-  frameData: Uint8Array, frameWidth: number, frameHeight: number, targetSize: number
-): Uint8Array {
-  const cropW = Math.min(frameWidth, frameHeight);
-  const offsetX = Math.floor((frameWidth - cropW) / 2);
-  const offsetY = Math.floor((frameHeight - cropW) / 2);
-  const result = new Uint8Array(targetSize * targetSize * 3);
-  const scaleX = cropW / targetSize;
-  const scaleY = cropW / targetSize;
-
-  for (let dy = 0; dy < targetSize; dy++) {
-    const srcY = Math.min(offsetY + Math.floor(dy * scaleY), frameHeight - 1);
-    const srcRowOff = srcY * frameWidth * 4;
-    for (let dx = 0; dx < targetSize; dx++) {
-      const srcX = Math.min(offsetX + Math.floor(dx * scaleX), frameWidth - 1);
-      const srcOff = srcRowOff + srcX * 4;
-      const dstOff = (dy * targetSize + dx) * 3;
-      result[dstOff] = frameData[srcOff];
-      result[dstOff + 1] = frameData[srcOff + 1];
-      result[dstOff + 2] = frameData[srcOff + 2];
-    }
-  }
-  return result;
-}
-
 function normalizeFaceNet(rgb: Uint8Array, size: number): Float32Array {
   const tensor = new Float32Array(size * size * 3);
   for (let i = 0; i < rgb.length; i++) {
@@ -64,13 +39,13 @@ function normalizeFaceNet(rgb: Uint8Array, size: number): Float32Array {
 }
 
 export async function extractFaceNetEmbedding(
-  frameData: Uint8Array, frameWidth: number, frameHeight: number
+  frameData: Uint8Array,
+  frameWidth: number,
+  frameHeight: number,
+  faceBounds: FaceBounds,
 ): Promise<number[] | null> {
   const model = await loadFaceNetModel();
   if (!model) return null;
-
-  const faceBounds = await detectFaces(frameData, frameWidth, frameHeight);
-  if (!faceBounds) return null;
 
   const faceCrop = cropFaceRegion(frameData, frameWidth, frameHeight, FACENET_INPUT_SIZE, faceBounds);
   if (!faceCrop) return null;

@@ -42,46 +42,6 @@ function photometricWetnessScore(frameData: Uint8Array, width: number, height: n
   return Math.min(1.0, specularRatio * 8.0 + avgSaturation * 0.3);
 }
 
-function resizeAndNormalize(
-  src: Uint8Array, srcWidth: number, srcHeight: number,
-  dstSize: number, mean: number[], std: number[],
-): Float32Array {
-  const dst = new Float32Array(dstSize * dstSize * 3);
-  const scaleX = srcWidth / dstSize;
-  const scaleY = srcHeight / dstSize;
-  const srcStride = srcWidth * 4;
-
-  for (let dy = 0; dy < dstSize; dy++) {
-    const srcY = Math.min(dy * scaleY, srcHeight - 1);
-    const y0 = Math.floor(srcY);
-    const y1 = Math.min(y0 + 1, srcHeight - 1);
-    const fy = srcY - y0;
-    const row0Off = y0 * srcStride;
-    const row1Off = y1 * srcStride;
-
-    for (let dx = 0; dx < dstSize; dx++) {
-      const srcX = Math.min(dx * scaleX, srcWidth - 1);
-      const x0 = Math.floor(srcX);
-      const x1 = Math.min(x0 + 1, srcWidth - 1);
-      const fx = srcX - x0;
-      const dstOff = (dy * dstSize + dx) * 3;
-
-      for (let c = 0; c < 3; c++) {
-        const p00 = src[row0Off + x0 * 4 + c];
-        const p10 = src[row0Off + x1 * 4 + c];
-        const p01 = src[row1Off + x0 * 4 + c];
-        const p11 = src[row1Off + x1 * 4 + c];
-        const top = p00 + (p10 - p00) * fx;
-        const bottom = p01 + (p11 - p01) * fx;
-        const val = top + (bottom - top) * fy;
-        const normalized = (val / 255.0 - mean[c]) / std[c];
-        dst[dstOff + c] = normalized;
-      }
-    }
-  }
-  return dst;
-}
-
 export function useWuduDetector(threshold: number = DEFAULT_THRESHOLD) {
   const [confidence, setConfidence] = useState(0);
   const [modelState, setModelState] = useState<'loading' | 'ready' | 'fallback'>('loading');

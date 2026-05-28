@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-ml-kit/face-detection": "^2.0.1",
     "@supabase/supabase-js": "^2.106.0",
     "drizzle-orm": "^0.45.2",
     "expo": "~54.0.33",

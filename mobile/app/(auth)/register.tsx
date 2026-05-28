@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { saveFaceEmbedding } from '../../services/faceEmbedding';
 import { extractFaceNetEmbedding } from '../../services/faceNetModel';
+import { detectFaces } from '../../services/faceDetector';
 import { useUserStore } from '../../store/userStore';
 
 export default function RegisterScreen() {
@@ -33,12 +34,22 @@ export default function RegisterScreen() {
       });
 
       if (photo?.base64) {
+        const faceBounds = await detectFaces(photo.uri);
+        if (!faceBounds) {
+          Alert.alert(
+            'No Face Detected',
+            'Please ensure your face is clearly visible and centered in the frame.'
+          );
+          setCapturing(false);
+          return;
+        }
+
         const binary = atob(photo.base64);
         const bytes = new Uint8Array(binary.length);
         for (let j = 0; j < binary.length; j++) {
           bytes[j] = binary.charCodeAt(j);
         }
-        const embedding = await extractFaceNetEmbedding(bytes, photo.width, photo.height);
+        const embedding = await extractFaceNetEmbedding(bytes, photo.width, photo.height, faceBounds);
         if (!embedding) {
           Alert.alert(
             'Face Model Not Available',
