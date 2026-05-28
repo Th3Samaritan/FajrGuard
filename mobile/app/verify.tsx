@@ -8,13 +8,14 @@ import { useAlarmStore } from '../store/alarmStore';
 import { useUserStore } from '../store/userStore';
 import { logPrayer } from '../services/storage';
 import { extractFaceNetEmbedding } from '../services/faceNetModel';
+import { detectFaces } from '../services/faceDetector';
 import { WuduCamera } from '../components/WuduCamera';
 
 export default function VerifyScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const wuduThreshold = useUserStore((s) => s.wuduThreshold);
-  const { confidence, processFrame, reset, modelState } = useWuduDetector(wuduThreshold);
+  const { confidence, processFrame, setFaceBounds, reset, modelState } = useWuduDetector(wuduThreshold);
   const { init, verify, reset: resetFace } = useFaceVerification();
   const { setWuduVerified, currentPrayer } = useAlarmStore();
   const [stage, setStage] = useState<'identity' | 'wetness' | 'done'>('identity');
@@ -64,6 +65,10 @@ export default function VerifyScreen() {
         }
 
         if (identityMatchCount.current >= 3) {
+          const bounds = await detectFaces(bytes, photo.width, photo.height);
+          if (bounds) {
+            setFaceBounds(bounds);
+          }
           setStage('wetness');
         }
         return;

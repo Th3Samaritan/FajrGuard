@@ -1,4 +1,5 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
+import { detectFaces, cropFaceRegion, FaceBounds } from '../services/faceDetector';
 
 declare function require(path: string): number;
 
@@ -88,6 +89,7 @@ export function useWuduDetector(threshold: number = DEFAULT_THRESHOLD) {
   const holdStartRef = useRef<number | null>(null);
   const lastFrameTime = useRef(0);
   const confidenceRef = useRef(0);
+  const faceBoundsRef = useRef<FaceBounds | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,10 +117,18 @@ export function useWuduDetector(threshold: number = DEFAULT_THRESHOLD) {
     return () => { cancelled = true; };
   }, []);
 
-  const preprocessToBuffer = useCallback((frameData: Uint8Array, width: number, height: number): ArrayBuffer => {
-    const tensor = resizeAndNormalize(frameData, width, height, MODEL_INPUT_SIZE, IMAGENET_MEAN, IMAGENET_STD);
-    return (tensor.buffer.slice(tensor.byteOffset, tensor.byteOffset + tensor.byteLength) as ArrayBuffer);
-  }, []);
+function preprocessCrop(rgb: Uint8Array, size: number): Float32Array {
+  const tensor = new Float32Array(size * size * 3);
+  for (let i = 0; i < rgb.length; i++) {
+    const c = i % 3;
+    tensor[i] = (rgb[i] / 255.0 - IMAGENET_MEAN[c]) / IMAGENET_STD[c];
+  }
+  return tensor;
+}
+
+function preprocessToBuffer(tensor: Float32Array): ArrayBuffer {
+  return (tensor.buffer.slice(tensor.byteOffset, tensor.byteOffset + tensor.byteLength) as ArrayBuffer);
+}
 
   const processFrame = useCallback((frameData: Uint8Array, width: number, height: number): WuduResult => {
     const now = Date.now();
@@ -133,11 +143,22 @@ export function useWuduDetector(threshold: number = DEFAULT_THRESHOLD) {
 
     if (modelRef.current && modelState === 'ready') {
       try {
-        const inputBuf = preprocessToBuffer(frameData, width, height);
-        const outputs = modelRef.current.runSync([inputBuf]);
-        if (outputs.length > 0) {
-          const outputData = new Float32Array(outputs[0]);
-          score = Math.min(1, Math.max(0, outputData[1]));
+        const bounds = faceBoundsRef.current;
+        if (bounds) {
+          const faceCrop = cropFaceRegion(frameData, width, height, MODEL_INPUT_SIZE, bounds);
+          if (faceCrop) {
+            const tensor = preprocessCrop(faceCrop, MODEL_INPUT_SIZE);
+            const inputBuf = preprocessToBuffer(tensor);
+            const outputs = modelRef.current.runSync([inputBuf]);
+            if (outputs.length > 0) {
+              const outputData = new Float32Array(outputs[0]);
+              score = Math.min(1, Math.max(0, outputData[1]));
+            } else {
+              score = photometricWetnessScore(frameData, width, height);
+            }
+          } else {
+            score = photometricWetnessScore(frameData, width, height);
+          }
         } else {
           score = photometricWetnessScore(frameData, width, height);
         }
@@ -162,14 +183,19 @@ export function useWuduDetector(threshold: number = DEFAULT_THRESHOLD) {
     }
 
     return { isVerified: false, confidence: score, stage: 'wetness' };
-  }, [threshold, modelState, preprocessToBuffer]);
+  }, [threshold, modelState]);
+
+  const setFaceBounds = useCallback((bounds: FaceBounds | null) => {
+    faceBoundsRef.current = bounds;
+  }, []);
 
   const reset = useCallback(() => {
     confidenceRef.current = 0;
     setConfidence(0);
     holdStartRef.current = null;
     lastFrameTime.current = 0;
+    faceBoundsRef.current = null;
   }, []);
 
-  return { confidence, threshold, modelState, processFrame, reset };
+  return { confidence, threshold, modelState, processFrame, setFaceBounds, reset };
 }
