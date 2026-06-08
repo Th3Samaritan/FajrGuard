@@ -23,7 +23,7 @@ async function readFileAsBase64(uri: string): Promise<string> {
 }
 
 function base64ToUint8(base64: string): Uint8Array {
-  const binary = global.atob ? global.atob(base64) : (require('base-64') as any).decode(base64);
+  const binary = atob(base64);
   const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
   return out;
