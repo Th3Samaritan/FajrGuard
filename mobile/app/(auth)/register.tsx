@@ -3,7 +3,7 @@ import { View, Text, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { saveFaceEmbedding, computePerUserThreshold } from '../../services/faceEmbedding';
-import { extractFaceNetEmbedding } from '../../services/faceNetModel';
+import { extractFaceNetEmbeddingDetailed } from '../../services/faceNetModel';
 import { detectFaces } from '../../services/faceDetector';
 import { useUserStore } from '../../store/userStore';
 
@@ -43,16 +43,19 @@ export default function RegisterScreen() {
           return;
         }
 
-        const embedding = await extractFaceNetEmbedding(photo.uri, photo.width, photo.height, faceBounds);
-        if (!embedding) {
-          Alert.alert(
-            'Face Model Not Available',
-            'The on-device face recognition model could not be loaded. Face verification will not work.'
-          );
+        const result = await extractFaceNetEmbeddingDetailed(photo.uri, photo.width, photo.height, faceBounds);
+        if (!result.ok) {
+          const title =
+            result.reason === 'model_load_failed' ? 'Face Model Failed to Load'
+            : result.reason === 'image_decode_failed' ? 'Could Not Process Photo'
+            : 'Face Inference Failed';
+          const body = `${result.reason}: ${result.detail ?? 'unknown'}`;
+          console.error('[register]', title, body);
+          Alert.alert(title, body);
           setCapturing(false);
           return;
         }
-        embeddings.push(embedding);
+        embeddings.push(result.embedding);
       }
     }
 
