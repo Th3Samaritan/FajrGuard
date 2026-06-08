@@ -1,4 +1,5 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
+import { Asset } from 'expo-asset';
 import { FaceBounds } from '../services/faceDetector';
 import { cropAndDecode } from '../services/imageDecode';
 
@@ -32,7 +33,14 @@ async function loadWuduModel(): Promise<any> {
         console.error('[wuduDetector] loadTensorflowModel export not found');
         return null;
       }
-      const model = await loader(require('../assets/models/wudu_detector.tflite'));
+      const asset = Asset.fromModule(require('../assets/models/wudu_detector.tflite'));
+      if (!asset.localUri) await asset.downloadAsync();
+      if (!asset.localUri) {
+        console.error('[wuduDetector] asset has no localUri');
+        return null;
+      }
+      console.log('[wuduDetector] resolved asset uri:', asset.localUri);
+      const model = await loader({ url: asset.localUri });
       cachedWuduModel = model;
       return model;
     } catch (e) {

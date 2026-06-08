@@ -1,5 +1,6 @@
 declare function require(path: string): number;
 
+import { Asset } from 'expo-asset';
 import { FaceBounds } from './faceDetector';
 import { cropAndDecode } from './imageDecode';
 
@@ -34,8 +35,29 @@ export async function loadFaceNetModel(): Promise<any> {
       return null;
     }
 
+    let modelUri: string;
     try {
-      const model = await loader(require('../assets/models/facenet_mobile.tflite'));
+      const asset = Asset.fromModule(require('../assets/models/facenet_mobile.tflite'));
+      if (!asset.localUri) {
+        await asset.downloadAsync();
+      }
+      if (!asset.localUri) {
+        const msg = 'expo-asset returned no localUri';
+        console.error('[faceNetModel]', msg);
+        lastLoadError = msg;
+        return null;
+      }
+      modelUri = asset.localUri;
+      console.log('[faceNetModel] resolved asset uri:', modelUri);
+    } catch (e: any) {
+      const msg = `asset resolution failed: ${String(e?.message ?? e)}`;
+      console.error('[faceNetModel]', msg);
+      lastLoadError = msg;
+      return null;
+    }
+
+    try {
+      const model = await loader({ url: modelUri });
       try {
         const inputs = (model as any)?.inputs;
         const outputs = (model as any)?.outputs;
