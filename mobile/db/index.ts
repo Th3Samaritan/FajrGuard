@@ -30,5 +30,6 @@ export async function initializeDatabase(): Promise<void> {
       total_count INTEGER NOT NULL DEFAULT 5,
       streak_day INTEGER DEFAULT 0
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS streak_log_date_unique ON streak_log(date);
   `);
 }

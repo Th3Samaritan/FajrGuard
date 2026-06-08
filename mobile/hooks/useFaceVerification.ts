@@ -1,39 +1,39 @@
 import { useRef, useCallback, useState } from 'react';
-import { loadFaceEmbedding, cosineSimilarity } from '../services/faceEmbedding';
+import { loadFacePacket, cosineSimilarity, DEFAULT_THRESHOLD, FacePacket } from '../services/faceEmbedding';
 import { loadFaceNetModel, isTfliteAvailable } from '../services/faceNetModel';
-
-const FACE_MATCH_THRESHOLD_FACENET = 0.85;
-const FACE_MATCH_THRESHOLD_FALLBACK = 0.95;
 
 export function useFaceVerification() {
   const [isVerified, setIsVerified] = useState(false);
   const [similarity, setSimilarity] = useState(0);
-  const registeredEmbedding = useRef<number[] | null>(null);
+  const packetRef = useRef<FacePacket | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [threshold, setThresholdState] = useState(DEFAULT_THRESHOLD);
 
   const init = useCallback(async () => {
-    const emb = await loadFaceEmbedding();
-    registeredEmbedding.current = emb;
+    const packet = await loadFacePacket();
+    packetRef.current = packet;
+    if (packet) setThresholdState(packet.threshold);
     const model = await loadFaceNetModel();
     setUsingFallback(model === null);
     setLoaded(true);
   }, []);
 
   const verify = useCallback(async (liveEmbedding: number[]): Promise<boolean> => {
-    if (!registeredEmbedding.current) {
+    if (!packetRef.current) {
       await init();
     }
-    if (!registeredEmbedding.current) return false;
+    const packet = packetRef.current;
+    if (!packet) return false;
 
     if (!isTfliteAvailable() || usingFallback) {
       return false;
     }
 
-    const sim = cosineSimilarity(liveEmbedding, registeredEmbedding.current);
+    const sim = cosineSimilarity(liveEmbedding, packet.embedding);
     setSimilarity(sim);
 
-    const matched = sim >= FACE_MATCH_THRESHOLD_FACENET;
+    const matched = sim >= packet.threshold;
     setIsVerified(matched);
     return matched;
   }, [init, usingFallback]);
@@ -47,7 +47,7 @@ export function useFaceVerification() {
     isVerified,
     similarity,
     loaded,
-    threshold: usingFallback ? FACE_MATCH_THRESHOLD_FALLBACK : FACE_MATCH_THRESHOLD_FACENET,
+    threshold,
     usingFallback,
     init,
     verify,

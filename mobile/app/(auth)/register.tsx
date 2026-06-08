@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { saveFaceEmbedding } from '../../services/faceEmbedding';
+import { saveFaceEmbedding, computePerUserThreshold } from '../../services/faceEmbedding';
 import { extractFaceNetEmbedding } from '../../services/faceNetModel';
 import { detectFaces } from '../../services/faceDetector';
 import { useUserStore } from '../../store/userStore';
@@ -28,12 +28,11 @@ export default function RegisterScreen() {
 
     for (let i = 0; i < 3; i++) {
       const photo = await cameraRef.current.takePictureAsync({
-        base64: true,
         quality: 0.5,
         skipProcessing: true,
       });
 
-      if (photo?.base64) {
+      if (photo?.uri) {
         const faceBounds = await detectFaces(photo.uri);
         if (!faceBounds) {
           Alert.alert(
@@ -44,12 +43,7 @@ export default function RegisterScreen() {
           return;
         }
 
-        const binary = atob(photo.base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let j = 0; j < binary.length; j++) {
-          bytes[j] = binary.charCodeAt(j);
-        }
-        const embedding = await extractFaceNetEmbedding(bytes, photo.width, photo.height, faceBounds);
+        const embedding = await extractFaceNetEmbedding(photo.uri, photo.width, photo.height, faceBounds);
         if (!embedding) {
           Alert.alert(
             'Face Model Not Available',
@@ -67,7 +61,9 @@ export default function RegisterScreen() {
       return sum / embeddings.length;
     });
 
-    await saveFaceEmbedding(averagedEmbedding);
+    const threshold = computePerUserThreshold(embeddings);
+    console.log(`[register] per-user threshold computed: ${threshold.toFixed(3)}`);
+    await saveFaceEmbedding(averagedEmbedding, threshold);
     useUserStore.getState().setRegistered(averagedEmbedding);
 
     setCaptured(true);

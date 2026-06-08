@@ -1,6 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Platform } from 'react-native';
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { useAlarmStore } from '../store/alarmStore';
 import { useUserStore } from '../store/userStore';
 
@@ -13,8 +12,8 @@ const ESCALATION_SCHEDULE = [
 ];
 
 export function useAlarmEngine() {
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const escalationTimer = useRef<NodeJS.Timeout | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const escalationTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const { isAlarming, currentPrayer, escalationLevel, wuduVerified } = useAlarmStore();
   const { setEscalationLevel } = useAlarmStore();
   const { wuduThreshold } = useUserStore();
@@ -24,12 +23,12 @@ export function useAlarmEngine() {
       clearInterval(escalationTimer.current);
       escalationTimer.current = null;
     }
-    if (soundRef.current) {
+    if (playerRef.current) {
       try {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
+        playerRef.current.pause();
+        playerRef.current.remove();
       } catch {}
-      soundRef.current = null;
+      playerRef.current = null;
     }
   }, []);
 
@@ -37,27 +36,25 @@ export function useAlarmEngine() {
     await stopAudio();
 
     try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        staysActiveInBackground: true,
-        interruptionModeIOS: InterruptionModeIOS.DuckOthers,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: false,
-        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'duckOthers',
       });
-    } catch {}
+    } catch (err) {
+      console.warn('[useAlarmEngine] setAudioModeAsync failed:', err);
+    }
 
     try {
-      const audioFile = currentPrayer === 'fajr'
+      const audioSource = currentPrayer === 'fajr'
         ? require('../assets/audio/adhan_fajr.wav')
         : require('../assets/audio/adhan.wav');
 
-      const { sound } = await Audio.Sound.createAsync(audioFile, {
-        isLooping: true,
-        volume: 0.4,
-        shouldPlay: true,
-      });
-      soundRef.current = sound;
+      const player = createAudioPlayer(audioSource);
+      player.loop = true;
+      player.volume = 0.4;
+      player.play();
+      playerRef.current = player;
 
       const startTime = Date.now();
       escalationTimer.current = setInterval(() => {
@@ -72,12 +69,12 @@ export function useAlarmEngine() {
         setEscalationLevel(level);
 
         const config = ESCALATION_SCHEDULE[level];
-        if (soundRef.current) {
-          soundRef.current.setVolumeAsync(config.volumeMultiplier).catch(() => {});
+        if (playerRef.current) {
+          try { playerRef.current.volume = config.volumeMultiplier; } catch {}
         }
       }, 1000);
     } catch (err) {
-      console.warn('Failed to start alarm audio:', err);
+      console.warn('[useAlarmEngine] failed to start alarm audio:', err);
     }
   }, [currentPrayer, stopAudio, setEscalationLevel]);
 
@@ -95,11 +92,11 @@ export function useAlarmEngine() {
   useEffect(() => {
     if (isAlarming) {
       startEscalation();
+    } else {
+      stopAudio();
     }
     return () => {
-      if (!isAlarming) {
-        stopAudio();
-      }
+      stopAudio();
     };
   }, [isAlarming, startEscalation, stopAudio]);
 

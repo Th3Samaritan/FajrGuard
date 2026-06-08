@@ -73,6 +73,7 @@ async function schedulePrayerNotifications(): Promise<void> {
         priority: Notifications.AndroidNotificationPriority.MAX,
         vibrate: [0, 500, 200, 500, 200, 500],
         categoryIdentifier: ALARM_CHANNEL_ID,
+        interruptionLevel: 'critical',
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,

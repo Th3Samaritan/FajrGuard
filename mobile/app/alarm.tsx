@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useKeepAwake } from 'expo-keep-awake';
 import { useAlarmEngine } from '../hooks/useAlarmEngine';
 import { AlarmOverlay } from '../components/AlarmOverlay';
 import { useAlarmStore } from '../store/alarmStore';
 
 export default function AlarmScreen() {
   const router = useRouter();
+  useKeepAwake('fajrguard-alarm');
   const { isAlarming, currentPrayer, escalationLevel } = useAlarmEngine();
 
   useEffect(() => {

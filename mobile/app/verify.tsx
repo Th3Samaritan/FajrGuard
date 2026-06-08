@@ -6,6 +6,7 @@ import { useWuduDetector } from '../hooks/useWuduDetector';
 import { useFaceVerification } from '../hooks/useFaceVerification';
 import { useAlarmStore } from '../store/alarmStore';
 import { useUserStore } from '../store/userStore';
+import { usePrayerStore } from '../store/prayerStore';
 import { logPrayer } from '../services/storage';
 import { extractFaceNetEmbedding } from '../services/faceNetModel';
 import { detectFaces, getLastFaceBounds } from '../services/faceDetector';
@@ -21,7 +22,8 @@ export default function VerifyScreen() {
   const [stage, setStage] = useState<'identity' | 'wetness' | 'done'>('identity');
   const [identityProgress, setIdentityProgress] = useState(0);
   const cameraRef = useRef<CameraView>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inflightRef = useRef(false);
   const identityFrameCount = useRef(0);
   const identityMatchCount = useRef(0);
 
@@ -33,28 +35,21 @@ export default function VerifyScreen() {
   }, [permission, requestPermission, init]);
 
   const processSnapshot = useCallback(async () => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || inflightRef.current) return;
+    inflightRef.current = true;
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        base64: true,
-        quality: 0.3,
+        quality: 0.4,
         skipProcessing: true,
       });
-
-      if (!photo?.base64) return;
-
-      const binary = atob(photo.base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
+      if (!photo?.uri) return;
 
       if (stage === 'identity') {
         const faceBounds = await detectFaces(photo.uri);
         if (!faceBounds) return;
 
-        const embedding = await extractFaceNetEmbedding(bytes, photo.width, photo.height, faceBounds);
+        const embedding = await extractFaceNetEmbedding(photo.uri, photo.width, photo.height, faceBounds);
         if (!embedding) return;
 
         const matched = await verify(embedding);
@@ -69,15 +64,16 @@ export default function VerifyScreen() {
 
         if (identityMatchCount.current >= 3) {
           const wuduBounds = getLastFaceBounds();
-          if (wuduBounds) {
-            setFaceBounds(wuduBounds);
-          }
+          if (wuduBounds) setFaceBounds(wuduBounds);
           setStage('wetness');
         }
         return;
       }
 
-      const result = processFrame(bytes, photo.width, photo.height);
+      const faceBounds = await detectFaces(photo.uri);
+      if (faceBounds) setFaceBounds(faceBounds);
+
+      const result = await processFrame(photo.uri, photo.width, photo.height);
 
       if (result.stage === 'done') {
         setStage('done');
@@ -90,15 +86,18 @@ export default function VerifyScreen() {
             completedAt: Date.now(),
             wuduConfidence: result.confidence,
           }).catch(console.warn);
+          usePrayerStore.getState().markCompleted(currentPrayer);
         }
       }
-    } catch (e) {
+    } catch {
       // silently skip failed captures
+    } finally {
+      inflightRef.current = false;
     }
-  }, [processFrame, setWuduVerified, currentPrayer, stage, verify]);
+  }, [processFrame, setWuduVerified, currentPrayer, stage, verify, setFaceBounds]);
 
   useEffect(() => {
-    intervalRef.current = setInterval(processSnapshot, 200);
+    intervalRef.current = setInterval(processSnapshot, 400);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };

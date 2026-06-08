@@ -26,6 +26,24 @@ Notifications.setNotificationHandler({
   }),
 });
 
+async function requestAlarmPermissions(): Promise<void> {
+  try {
+    const current = await Notifications.getPermissionsAsync();
+    if (current.granted) return;
+    await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowSound: true,
+        allowBadge: false,
+        allowCriticalAlerts: true,
+        provideAppNotificationSettings: true,
+      },
+    });
+  } catch (e) {
+    console.warn('[notifications] permission request failed:', e);
+  }
+}
+
 async function createAlarmChannel() {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(ALARM_CHANNEL_ID, {
@@ -51,19 +69,46 @@ async function createAlarmChannel() {
 export default function RootLayout() {
   const router = useRouter();
   const pathname = usePathname();
-  const { fontsLoaded } = useFajrGuardFonts();
+  const { fontsLoaded, fontError } = useFajrGuardFonts();
   const alarmingRef = useRef(false);
 
   useEffect(() => {
     async function init() {
-      initializeDatabase();
+      await initializeDatabase();
       await createAlarmChannel();
+      await requestAlarmPermissions();
+      await useUserStore.getState().hydrate();
       loadFaceEmbedding().then((emb) => {
         if (emb) {
           useUserStore.getState().setRegistered(emb);
         }
       });
       registerAlarmTask();
+
+      try {
+        const last = await Notifications.getLastNotificationResponseAsync();
+        const data: any = last?.notification?.request?.content?.data;
+        if (data?.type === 'prayer_alarm' && data?.prayerId) {
+          useAlarmStore.getState().startAlarm(data.prayerId as string);
+          alarmingRef.current = true;
+          router.replace('/alarm');
+          return;
+        }
+
+        const MISSED_WINDOW_MS = 10 * 60 * 1000;
+        const times = usePrayerStore.getState().prayerTimes;
+        const now = Date.now();
+        const recent = times
+          .filter((pt) => pt.timestamp <= now && now - pt.timestamp <= MISSED_WINDOW_MS)
+          .sort((a, b) => b.timestamp - a.timestamp)[0];
+        if (recent) {
+          useAlarmStore.getState().startAlarm(recent.prayerId);
+          alarmingRef.current = true;
+          router.replace('/alarm');
+        }
+      } catch (e) {
+        console.warn('[notifications] cold-start lookup failed:', e);
+      }
     }
     init();
   }, []);
@@ -129,7 +174,7 @@ export default function RootLayout() {
     return unsub;
   }, []);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded && !fontError) {
     return (
       <View className="flex-1 bg-[#050C16] items-center justify-center">
         <Text className="text-[#C9A227] text-2xl">FajrGuard</Text>

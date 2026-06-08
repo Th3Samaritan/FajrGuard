@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const prayers = sqliteTable('prayers', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -22,4 +22,6 @@ export const streakLog = sqliteTable('streak_log', {
   completedCount: integer('completed_count').notNull().default(0),
   totalCount: integer('total_count').notNull().default(5),
   streakDay: integer('streak_day').default(0),
-});
+}, (table) => ({
+  dateUnique: uniqueIndex('streak_log_date_unique').on(table.date),
+}));

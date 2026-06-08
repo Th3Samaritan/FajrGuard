@@ -9,10 +9,32 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/audio/adhan.wav",
+            "./assets/audio/adhan_fajr.wav"
+          ]
+        }
+      ],
       "expo-task-manager",
       "expo-background-fetch",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "FajrGuard uses the camera to verify your face and detect wudu (ablution) moisture on-device."
+        }
+      ],
+      [
+        "react-native-fast-tflite",
+        {
+          "enableCoreMLDelegate": true,
+          "enableAndroidGpuLibraries": true
+        }
+      ],
+      "expo-audio"
     ],
     "android": {
       "permissions": [
@@ -28,16 +50,19 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "POST_NOTIFICATIONS",
-        "USE_FULL_SCREEN_INTENT",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.WAKE_LOCK"
+        "USE_FULL_SCREEN_INTENT"
       ],
       "package": "com.anonymous.fajrguard"
     },
     "ios": {
+      "bundleIdentifier": "com.anonymous.fajrguard",
+      "entitlements": {
+        "com.apple.developer.usernotifications.critical-alerts": true
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "Camera is used for wudu verification - detecting moisture on your face after ablution.",
-        "NSMicrophoneUsageDescription": "Not used."
+        "NSMicrophoneUsageDescription": "Not used.",
+        "UIBackgroundModes": ["audio", "fetch", "processing"]
       }
     },
     "extra": {

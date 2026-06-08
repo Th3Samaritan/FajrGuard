@@ -18,9 +18,7 @@ export function useStreak() {
     setPrayerCalendar(calendar);
 
     let currentStreak = 0;
-    let bestStreak = 0;
     const today = new Date();
-    const sortedDates = Object.keys(calendar).sort().reverse();
 
     for (let i = 0; i < 365; i++) {
       const d = new Date(today);
@@ -30,11 +28,30 @@ export function useStreak() {
 
       if (count >= 5) {
         currentStreak++;
-        bestStreak = Math.max(bestStreak, currentStreak);
-      } else if (i > 0 || count < 5) {
+      } else if (i === 0) {
+        continue;
+      } else {
         break;
       }
     }
+
+    let bestStreak = 0;
+    let run = 0;
+    const allDates = Object.keys(calendar).sort();
+    let prev: number | null = null;
+    for (const ds of allDates) {
+      const ts = new Date(ds).getTime();
+      const count = calendar[ds] || 0;
+      if (count >= 5) {
+        if (prev !== null && ts - prev === 86400000) run++;
+        else run = 1;
+        bestStreak = Math.max(bestStreak, run);
+      } else {
+        run = 0;
+      }
+      prev = ts;
+    }
+    bestStreak = Math.max(bestStreak, currentStreak);
 
     setStreakDays(currentStreak);
     setLongestStreak(bestStreak);
