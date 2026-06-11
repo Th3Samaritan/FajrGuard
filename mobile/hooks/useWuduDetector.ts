@@ -5,7 +5,8 @@ import {
   computeWetnessMetrics,
   scoreWetness,
   FALLBACK_DRY_BASELINE,
-  LOW_LIGHT_LUMINANCE,
+  LOW_LIGHT_HARD,
+  LOW_LIGHT_SOFT,
   WetnessMetrics,
 } from '../services/wetnessMetrics';
 
@@ -56,8 +57,12 @@ export function useWuduDetector(threshold: number = DEFAULT_THRESHOLD) {
           if (decoded) {
             const metrics = computeWetnessMetrics(decoded.rgb, CROP_SIZE);
             setLastMetrics(metrics);
-            dark = metrics.meanLuminance < LOW_LIGHT_LUMINANCE;
-            score = dark ? 0 : scoreWetness(metrics, dryBaselineRef.current);
+            dark = metrics.meanLuminance < LOW_LIGHT_SOFT;
+            // only a truly unusable frame zeroes the score; dim-but-visible
+            // frames are still scored while the UI asks for more light
+            score = metrics.meanLuminance < LOW_LIGHT_HARD
+              ? 0
+              : scoreWetness(metrics, dryBaselineRef.current);
             console.log(
               `[wetness] score=${score.toFixed(3)} spec=${metrics.specularRatio.toFixed(4)} glints=${metrics.glintCount.toFixed(2)} desat=${metrics.highlightDesaturation.toFixed(3)} edge=${metrics.edgeEnergy.toFixed(3)} lum=${metrics.meanLuminance.toFixed(0)} | dry spec=${dryBaselineRef.current.specularRatio.toFixed(4)} glints=${dryBaselineRef.current.glintCount.toFixed(2)}`
             );

@@ -8,8 +8,9 @@ const EMBEDDING_KEY = 'face_embedding_v1';
 const PACKET_KEY = 'face_packet_v2';
 
 export const DEFAULT_THRESHOLD = 0.55;
-// -2: adds dryBaseline wetness metrics; forces re-enrollment of older packets
-export const CURRENT_MODEL_VERSION = 'mobilefacenet-2';
+// -3: wetness metrics recomputed over the face oval only; old baselines
+// are not comparable, so older packets must re-enroll
+export const CURRENT_MODEL_VERSION = 'mobilefacenet-3';
 
 export interface FacePacket {
   embedding: number[];

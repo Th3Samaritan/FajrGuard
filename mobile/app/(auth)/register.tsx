@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Brightness from 'expo-brightness';
 import { saveFaceEmbedding, computePerUserThreshold } from '../../services/faceEmbedding';
 import { extractFaceNetEmbeddingDetailed } from '../../services/faceNetModel';
 import { detectFaces } from '../../services/faceDetector';
@@ -23,6 +24,23 @@ export default function RegisterScreen() {
       requestPermission();
     }
   }, [permission, requestPermission]);
+
+  // Max brightness during enrollment so the dry baseline is captured under
+  // screen lighting comparable to the verify screen's flash.
+  React.useEffect(() => {
+    let previous: number | null = null;
+    (async () => {
+      try {
+        previous = await Brightness.getBrightnessAsync();
+        await Brightness.setBrightnessAsync(1);
+      } catch {}
+    })();
+    return () => {
+      if (previous !== null) {
+        Brightness.setBrightnessAsync(previous).catch(() => {});
+      }
+    };
+  }, []);
 
   const handleCapture = useCallback(async () => {
     if (!cameraRef.current || capturing) return;

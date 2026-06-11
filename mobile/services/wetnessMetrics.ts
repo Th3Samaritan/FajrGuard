@@ -18,9 +18,19 @@ const GLINT_MIN_PX = 2;
 const GLINT_MAX_PX = 80;
 
 // Absolute floor: even with a noisy baseline, a face this matte cannot pass.
-const SPECULAR_RATIO_FLOOR = 0.015;
+const SPECULAR_RATIO_FLOOR = 0.008;
 
-export const LOW_LIGHT_LUMINANCE = 40;
+// Below HARD the frame is unusable (score forced to 0); between HARD and
+// SOFT we still score but the UI nudges the user toward more light.
+export const LOW_LIGHT_HARD = 25;
+export const LOW_LIGHT_SOFT = 45;
+// kept for backwards compat with existing imports
+export const LOW_LIGHT_LUMINANCE = LOW_LIGHT_SOFT;
+
+// Metrics are computed only inside the inscribed face oval; crop corners are
+// mostly hair/background and drag down both luminance and specular stats.
+const ELLIPSE_RX = 0.40; // fraction of crop size
+const ELLIPSE_RY = 0.47;
 
 function luminanceOf(r: number, g: number, b: number): number {
   return 0.299 * r + 0.587 * g + 0.114 * b;
@@ -36,33 +46,50 @@ export function computeWetnessMetrics(rgb: Uint8Array, size: number): WetnessMet
   const pixelCount = size * size;
   const lum = new Float32Array(pixelCount);
   const sat = new Float32Array(pixelCount);
+  const inFace = new Uint8Array(pixelCount);
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const rx = size * ELLIPSE_RX;
+  const ry = size * ELLIPSE_RY;
 
   let lumSum = 0;
+  let faceCount = 0;
   for (let p = 0, i = 0; p < pixelCount; p++, i += 3) {
+    const x = p % size;
+    const y = (p / size) | 0;
+    const dx = (x - cx) / rx;
+    const dy = (y - cy) / ry;
+    if (dx * dx + dy * dy > 1) continue;
+    inFace[p] = 1;
+    faceCount++;
     const l = luminanceOf(rgb[i], rgb[i + 1], rgb[i + 2]);
     lum[p] = l;
     lumSum += l;
     sat[p] = saturationOf(rgb[i], rgb[i + 1], rgb[i + 2]);
   }
-  const meanLuminance = lumSum / pixelCount;
+  const meanLuminance = faceCount > 0 ? lumSum / faceCount : 0;
 
-  // Percentile threshold from the crop's own histogram (256 bins).
+  // Percentile threshold from the face region's own histogram (256 bins).
   const hist = new Uint32Array(256);
-  for (let p = 0; p < pixelCount; p++) hist[Math.min(255, lum[p] | 0)]++;
+  for (let p = 0; p < pixelCount; p++) {
+    if (inFace[p]) hist[Math.min(255, lum[p] | 0)]++;
+  }
   let cum = 0;
   let lumThreshold = 255;
-  const target = pixelCount * SPECULAR_PERCENTILE;
+  const target = faceCount * SPECULAR_PERCENTILE;
   for (let bin = 0; bin < 256; bin++) {
     cum += hist[bin];
     if (cum >= target) { lumThreshold = bin; break; }
   }
 
-  // Specular mask: bright AND desaturated.
+  // Specular mask: bright AND desaturated, face region only.
   const mask = new Uint8Array(pixelCount);
   let maskCount = 0;
   let satInsideSum = 0;
   let satOutsideSum = 0;
   for (let p = 0; p < pixelCount; p++) {
+    if (!inFace[p]) continue;
     if (lum[p] >= lumThreshold && sat[p] <= SPECULAR_MAX_SATURATION) {
       mask[p] = 1;
       maskCount++;
@@ -71,9 +98,9 @@ export function computeWetnessMetrics(rgb: Uint8Array, size: number): WetnessMet
       satOutsideSum += sat[p];
     }
   }
-  const specularRatio = maskCount / pixelCount;
+  const specularRatio = faceCount > 0 ? maskCount / faceCount : 0;
   const satInside = maskCount > 0 ? satInsideSum / maskCount : 0;
-  const satOutside = pixelCount - maskCount > 0 ? satOutsideSum / (pixelCount - maskCount) : 0;
+  const satOutside = faceCount - maskCount > 0 ? satOutsideSum / (faceCount - maskCount) : 0;
   const highlightDesaturation = Math.max(0, satOutside - satInside);
 
   // Connected components (4-neighbour flood fill) over the specular mask.
@@ -98,7 +125,7 @@ export function computeWetnessMetrics(rgb: Uint8Array, size: number): WetnessMet
     }
     if (blobSize >= GLINT_MIN_PX && blobSize <= GLINT_MAX_PX) glints++;
   }
-  const glintCount = (glints / pixelCount) * 1000;
+  const glintCount = faceCount > 0 ? (glints / faceCount) * 1000 : 0;
 
   // Edge energy: mean |gradient| on mask boundary pixels, normalized to 0-1.
   let edgeSum = 0;
@@ -162,14 +189,14 @@ function sigmoid(x: number): number {
 export function scoreWetness(now: WetnessMetrics, dry: WetnessMetrics): number {
   if (now.specularRatio < SPECULAR_RATIO_FLOOR) return Math.min(0.3, now.specularRatio / SPECULAR_RATIO_FLOOR * 0.3);
 
-  const ratioGain = now.specularRatio / Math.max(dry.specularRatio, 0.004); // 1 = unchanged
+  const ratioGain = Math.min(4, now.specularRatio / Math.max(dry.specularRatio, 0.004)); // 1 = unchanged
   const glintGain = now.glintCount - dry.glintCount;                        // droplets added
   const desatGain = now.highlightDesaturation - dry.highlightDesaturation;  // whiter highlights
   const edgeGain = now.edgeEnergy - dry.edgeEnergy;                         // sharper edges
 
   const z =
-    2.2 * (ratioGain - 1.6) +   // need ~1.6x baseline specular area to break even
-    1.5 * glintGain +
+    2.0 * (ratioGain - 1.25) +  // ~1.25x baseline specular area to break even
+    1.8 * glintGain +
     6.0 * desatGain +
     3.0 * edgeGain;
 

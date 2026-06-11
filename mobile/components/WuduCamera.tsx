@@ -10,7 +10,7 @@ interface WuduCameraProps {
 
 function getStatusMessage(confidence: number, stage: string, modelState?: string, lowLight?: boolean): string {
   if (modelState === 'loading') return 'Loading AI model\u2026';
-  if (lowLight && stage === 'wetness') return 'Too dark \u2014 please turn on the light';
+  if (lowLight && stage === 'wetness') return 'Low light \u2014 hold the phone closer to your face';
   if (stage === 'identity') {
     if (confidence >= 0.8) return 'Identity confirmed \u2014 proceed to wudu';
     return 'Verifying your identity\u2026';
@@ -46,23 +46,25 @@ export function WuduCamera({ confidence, stage, modelState, lowLight }: WuduCame
       </View>
 
       <View className="absolute bottom-32 left-0 right-0 items-center px-4">
-        <Text className="text-white text-base text-center mb-3">
-          {message}
-        </Text>
+        <View className="bg-[rgba(0,0,0,0.55)] rounded-2xl px-4 py-3 w-full items-center">
+          <Text className="text-white text-base text-center mb-3">
+            {message}
+          </Text>
 
-        <View className="w-full h-3 bg-[rgba(255,255,255,0.1)] rounded-full overflow-hidden">
-          <View
-            className="h-full rounded-full"
-            style={{ width: `${progress}%`, backgroundColor: barColor }}
-          />
+          <View className="w-full h-3 bg-[rgba(255,255,255,0.15)] rounded-full overflow-hidden">
+            <View
+              className="h-full rounded-full"
+              style={{ width: `${progress}%`, backgroundColor: barColor }}
+            />
+          </View>
+          <Text className="text-[rgba(255,255,255,0.7)] text-xs mt-1">
+            {progress.toFixed(0)}% {stage === 'identity' ? 'Identity' : 'Wudu Confidence'}
+          </Text>
         </View>
-        <Text className="text-[rgba(255,255,255,0.6)] text-xs mt-1">
-          {progress.toFixed(0)}% {stage === 'identity' ? 'Identity' : 'Wudu Confidence'}
-        </Text>
       </View>
 
-      <View className="absolute top-4 right-4">
-        <Text className="text-[rgba(255,255,255,0.4)] text-xs">
+      <View className="absolute top-4 right-4 bg-[rgba(0,0,0,0.55)] rounded-full px-3 py-1">
+        <Text className="text-[rgba(255,255,255,0.85)] text-xs">
           {stage === 'identity'
             ? 'Stage 1/2: Identity Check'
             : stage === 'wetness'

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Brightness from 'expo-brightness';
 import { useWuduDetector } from '../hooks/useWuduDetector';
 import { useFaceVerification } from '../hooks/useFaceVerification';
 import { useAlarmStore } from '../store/alarmStore';
@@ -36,13 +37,30 @@ export default function VerifyScreen() {
     }
   }, [permission, requestPermission, init, setDryBaseline]);
 
+  // Screen flash: max brightness while verifying so the white surround
+  // illuminates the face in a dark bathroom; restored on exit.
+  useEffect(() => {
+    let previous: number | null = null;
+    (async () => {
+      try {
+        previous = await Brightness.getBrightnessAsync();
+        await Brightness.setBrightnessAsync(1);
+      } catch {}
+    })();
+    return () => {
+      if (previous !== null) {
+        Brightness.setBrightnessAsync(previous).catch(() => {});
+      }
+    };
+  }, []);
+
   const processSnapshot = useCallback(async () => {
     if (!cameraRef.current || inflightRef.current) return;
     inflightRef.current = true;
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.4,
+        quality: 0.7,
         skipProcessing: true,
       });
       if (!photo?.uri) return;
@@ -128,13 +146,13 @@ export default function VerifyScreen() {
       {permission?.granted ? (
         <CameraView
           ref={cameraRef}
-          style={StyleSheet.absoluteFill}
+          style={styles.cameraInset}
           facing="front"
           mode="picture"
         />
       ) : (
         <View className="absolute inset-0 items-center justify-center">
-          <Text className="text-white text-base">Camera permission required</Text>
+          <Text className="text-black text-base">Camera permission required</Text>
         </View>
       )}
 
@@ -158,6 +176,16 @@ export default function VerifyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    // white surround at max brightness doubles as a front flash
+    backgroundColor: '#FFFFFF',
+  },
+  cameraInset: {
+    position: 'absolute',
+    top: '9%',
+    left: '9%',
+    right: '9%',
+    bottom: '9%',
+    borderRadius: 24,
+    overflow: 'hidden',
   },
 });
