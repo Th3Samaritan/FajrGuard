@@ -40,7 +40,7 @@ async function loadWuduModel(): Promise<any> {
         return null;
       }
       console.log('[wuduDetector] resolved asset uri:', asset.localUri);
-      const model = await loader({ url: asset.localUri });
+      const model = await loader({ url: asset.localUri }, []);
       cachedWuduModel = model;
       return model;
     } catch (e) {

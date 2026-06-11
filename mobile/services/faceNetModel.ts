@@ -57,7 +57,8 @@ export async function loadFaceNetModel(): Promise<any> {
     }
 
     try {
-      const model = await loader({ url: modelUri });
+      // delegates array is required by the Nitro spec; [] = default CPU delegate
+      const model = await loader({ url: modelUri }, []);
       try {
         const inputs = (model as any)?.inputs;
         const outputs = (model as any)?.outputs;
