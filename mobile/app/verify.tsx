@@ -10,13 +10,14 @@ import { usePrayerStore } from '../store/prayerStore';
 import { logPrayer } from '../services/storage';
 import { extractFaceNetEmbedding } from '../services/faceNetModel';
 import { detectFaces, getLastFaceBounds } from '../services/faceDetector';
+import { loadFacePacket } from '../services/faceEmbedding';
 import { WuduCamera } from '../components/WuduCamera';
 
 export default function VerifyScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const wuduThreshold = useUserStore((s) => s.wuduThreshold);
-  const { confidence, processFrame, setFaceBounds, reset, modelState } = useWuduDetector(wuduThreshold);
+  const { confidence, processFrame, setFaceBounds, setDryBaseline, reset, modelState, lowLight } = useWuduDetector(wuduThreshold);
   const { init, verify, reset: resetFace } = useFaceVerification();
   const { setWuduVerified, currentPrayer } = useAlarmStore();
   const [stage, setStage] = useState<'identity' | 'wetness' | 'done'>('identity');
@@ -29,10 +30,11 @@ export default function VerifyScreen() {
 
   useEffect(() => {
     init();
+    loadFacePacket().then((packet) => setDryBaseline(packet?.dryBaseline));
     if (!permission?.granted) {
       requestPermission();
     }
-  }, [permission, requestPermission, init]);
+  }, [permission, requestPermission, init, setDryBaseline]);
 
   const processSnapshot = useCallback(async () => {
     if (!cameraRef.current || inflightRef.current) return;
@@ -140,6 +142,7 @@ export default function VerifyScreen() {
         confidence={stage === 'wetness' || stage === 'done' ? confidence : identityProgress}
         stage={stage}
         modelState={modelState}
+        lowLight={lowLight}
       />
 
       <View

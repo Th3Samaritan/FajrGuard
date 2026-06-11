@@ -5,10 +5,12 @@ interface WuduCameraProps {
   confidence: number;
   stage: 'identity' | 'wetness' | 'done';
   modelState?: 'loading' | 'ready' | 'fallback';
+  lowLight?: boolean;
 }
 
-function getStatusMessage(confidence: number, stage: string, modelState?: string): string {
+function getStatusMessage(confidence: number, stage: string, modelState?: string, lowLight?: boolean): string {
   if (modelState === 'loading') return 'Loading AI model\u2026';
+  if (lowLight && stage === 'wetness') return 'Too dark \u2014 please turn on the light';
   if (stage === 'identity') {
     if (confidence >= 0.8) return 'Identity confirmed \u2014 proceed to wudu';
     return 'Verifying your identity\u2026';
@@ -29,9 +31,9 @@ function getGuideColor(confidence: number, stage: string): string {
   return 'rgba(255,255,255,0.3)';
 }
 
-export function WuduCamera({ confidence, stage, modelState }: WuduCameraProps) {
+export function WuduCamera({ confidence, stage, modelState, lowLight }: WuduCameraProps) {
   const barColor = getGuideColor(confidence, stage);
-  const message = getStatusMessage(confidence, stage, modelState);
+  const message = getStatusMessage(confidence, stage, modelState, lowLight);
   const progress = Math.min(Math.max(confidence * 100, 0), 100);
 
   return (

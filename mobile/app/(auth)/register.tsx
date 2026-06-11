@@ -5,6 +5,10 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { saveFaceEmbedding, computePerUserThreshold } from '../../services/faceEmbedding';
 import { extractFaceNetEmbeddingDetailed } from '../../services/faceNetModel';
 import { detectFaces } from '../../services/faceDetector';
+import { cropAndDecode } from '../../services/imageDecode';
+import { computeWetnessMetrics, averageMetrics, WetnessMetrics } from '../../services/wetnessMetrics';
+
+const WETNESS_CROP_SIZE = 224;
 import { useUserStore } from '../../store/userStore';
 
 export default function RegisterScreen() {
@@ -25,6 +29,7 @@ export default function RegisterScreen() {
     setCapturing(true);
 
     const embeddings: number[][] = [];
+    const dryMetrics: WetnessMetrics[] = [];
 
     for (let i = 0; i < 3; i++) {
       const photo = await cameraRef.current.takePictureAsync({
@@ -56,6 +61,11 @@ export default function RegisterScreen() {
           return;
         }
         embeddings.push(result.embedding);
+
+        const decoded = await cropAndDecode(photo.uri, photo.width, photo.height, faceBounds, WETNESS_CROP_SIZE);
+        if (decoded) {
+          dryMetrics.push(computeWetnessMetrics(decoded.rgb, WETNESS_CROP_SIZE));
+        }
       }
     }
 
@@ -65,8 +75,10 @@ export default function RegisterScreen() {
     });
 
     const threshold = computePerUserThreshold(embeddings);
+    const dryBaseline = dryMetrics.length > 0 ? averageMetrics(dryMetrics) : undefined;
     console.log(`[register] per-user threshold computed: ${threshold.toFixed(3)}`);
-    await saveFaceEmbedding(averagedEmbedding, threshold);
+    console.log('[register] dry baseline:', JSON.stringify(dryBaseline));
+    await saveFaceEmbedding(averagedEmbedding, threshold, dryBaseline);
     useUserStore.getState().setRegistered(averagedEmbedding);
 
     setCaptured(true);

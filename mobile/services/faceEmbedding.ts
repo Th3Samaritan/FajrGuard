@@ -2,18 +2,21 @@ import * as SecureStore from 'expo-secure-store';
 import { db } from '../db';
 import { settings } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import { WetnessMetrics } from './wetnessMetrics';
 
 const EMBEDDING_KEY = 'face_embedding_v1';
 const PACKET_KEY = 'face_packet_v2';
 
 export const DEFAULT_THRESHOLD = 0.55;
-export const CURRENT_MODEL_VERSION = 'mobilefacenet-1';
+// -2: adds dryBaseline wetness metrics; forces re-enrollment of older packets
+export const CURRENT_MODEL_VERSION = 'mobilefacenet-2';
 
 export interface FacePacket {
   embedding: number[];
   threshold: number;
   modelVersion: string;
   createdAt: number;
+  dryBaseline?: WetnessMetrics;
 }
 
 function isAvailable(): boolean {
@@ -71,12 +74,17 @@ async function migrateLegacyEmbedding(): Promise<FacePacket | null> {
   }
 }
 
-export async function saveFaceEmbedding(embedding: number[], threshold = DEFAULT_THRESHOLD): Promise<void> {
+export async function saveFaceEmbedding(
+  embedding: number[],
+  threshold = DEFAULT_THRESHOLD,
+  dryBaseline?: WetnessMetrics,
+): Promise<void> {
   const packet: FacePacket = {
     embedding,
     threshold,
     modelVersion: CURRENT_MODEL_VERSION,
     createdAt: Date.now(),
+    dryBaseline,
   };
   if (isAvailable()) {
     await writePacket(packet);
