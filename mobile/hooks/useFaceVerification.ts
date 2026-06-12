@@ -1,5 +1,11 @@
 import { useRef, useCallback, useState } from 'react';
-import { loadFacePacket, cosineSimilarity, DEFAULT_THRESHOLD, FacePacket } from '../services/faceEmbedding';
+import {
+  loadFacePacket,
+  cosineSimilarity,
+  DEFAULT_THRESHOLD,
+  MAX_IDENTITY_THRESHOLD,
+  FacePacket,
+} from '../services/faceEmbedding';
 import { loadFaceNetModel, isTfliteAvailable } from '../services/faceNetModel';
 
 export function useFaceVerification() {
@@ -12,8 +18,13 @@ export function useFaceVerification() {
 
   const init = useCallback(async () => {
     const packet = await loadFacePacket();
+    if (packet) {
+      // Cap at read time: packets enrolled before the burst-similarity fix
+      // stored unreachable thresholds (clamped at 0.85).
+      packet.threshold = Math.min(packet.threshold, MAX_IDENTITY_THRESHOLD);
+      setThresholdState(packet.threshold);
+    }
     packetRef.current = packet;
-    if (packet) setThresholdState(packet.threshold);
     const model = await loadFaceNetModel();
     setUsingFallback(model === null);
     setLoaded(true);
@@ -34,6 +45,7 @@ export function useFaceVerification() {
     setSimilarity(sim);
 
     const matched = sim >= packet.threshold;
+    console.log(`[identity] sim=${sim.toFixed(3)} threshold=${packet.threshold.toFixed(3)} matched=${matched}`);
     setIsVerified(matched);
     return matched;
   }, [init, usingFallback]);

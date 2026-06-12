@@ -74,13 +74,14 @@ export default function VerifyScreen() {
 
         const matched = await verify(embedding);
         identityFrameCount.current++;
-        setIdentityProgress(Math.min(1, identityFrameCount.current / 5));
 
         if (matched) {
           identityMatchCount.current++;
         } else {
           identityMatchCount.current = Math.max(0, identityMatchCount.current - 1);
         }
+        // progress reflects actual matches, not frames seen
+        setIdentityProgress(Math.min(1, identityMatchCount.current / 3));
 
         if (identityMatchCount.current >= 3) {
           const wuduBounds = getLastFaceBounds();

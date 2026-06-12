@@ -145,6 +145,12 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return dotProduct / denom;
 }
 
+// Burst shots are near-identical (same second/pose/light) so their pairwise
+// similarity (~0.98) says nothing about cross-session variance. Real live-vs-
+// enrolled similarity with unaligned crops runs 0.6-0.8, and a wet face
+// shifts the embedding further. Subtract a generous margin and cap low.
+export const MAX_IDENTITY_THRESHOLD = 0.62;
+
 export function computePerUserThreshold(embeddings: number[][]): number {
   if (embeddings.length < 2) return DEFAULT_THRESHOLD;
   let minSim = 1;
@@ -154,6 +160,6 @@ export function computePerUserThreshold(embeddings: number[][]): number {
       if (sim < minSim) minSim = sim;
     }
   }
-  const threshold = minSim - 0.05;
-  return Math.max(0.45, Math.min(0.85, threshold));
+  const threshold = minSim - 0.3;
+  return Math.max(0.45, Math.min(MAX_IDENTITY_THRESHOLD, threshold));
 }
