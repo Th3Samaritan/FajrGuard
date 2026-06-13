@@ -10,6 +10,7 @@ export interface WetnessMetrics {
   highlightDesaturation: number; // saturation gap: outside mask minus inside mask
   edgeEnergy: number;           // mean gradient magnitude on mask boundary (0-1)
   meanLuminance: number;        // 0-255, used for low-light warning, not scoring
+  skinSaturation: number;       // mean saturation of non-highlight face pixels (liveness)
 }
 
 const SPECULAR_PERCENTILE = 0.92;
@@ -19,6 +20,15 @@ const GLINT_MAX_PX = 80;
 
 // Absolute floor: even with a noisy baseline, a face this matte cannot pass.
 const SPECULAR_RATIO_FLOOR = 0.008;
+
+// Plausibility ceiling: real wet skin scatters small highlights across an
+// otherwise skin-toned face. When most of the oval is bright+desaturated the
+// frame is overexposed or there's no real face (e.g. camera pointed at a wall
+// under the white screen-flash) - never count that as "wet".
+const SPECULAR_RATIO_CEILING = 0.4;
+// A real face has chromatic skin. If even the non-highlight pixels are nearly
+// colorless, there is no skin in view.
+const MIN_SKIN_SATURATION = 0.06;
 
 // Below HARD the frame is unusable (score forced to 0); between HARD and
 // SOFT we still score but the UI nudges the user toward more light.
@@ -145,7 +155,7 @@ export function computeWetnessMetrics(rgb: Uint8Array, size: number): WetnessMet
   }
   const edgeEnergy = edgePixels > 0 ? edgeSum / edgePixels / 255 : 0;
 
-  return { specularRatio, glintCount, highlightDesaturation, edgeEnergy, meanLuminance };
+  return { specularRatio, glintCount, highlightDesaturation, edgeEnergy, meanLuminance, skinSaturation: satOutside };
 }
 
 export function averageMetrics(list: WetnessMetrics[]): WetnessMetrics {
@@ -157,8 +167,9 @@ export function averageMetrics(list: WetnessMetrics[]): WetnessMetrics {
       highlightDesaturation: acc.highlightDesaturation + m.highlightDesaturation,
       edgeEnergy: acc.edgeEnergy + m.edgeEnergy,
       meanLuminance: acc.meanLuminance + m.meanLuminance,
+      skinSaturation: acc.skinSaturation + m.skinSaturation,
     }),
-    { specularRatio: 0, glintCount: 0, highlightDesaturation: 0, edgeEnergy: 0, meanLuminance: 0 },
+    { specularRatio: 0, glintCount: 0, highlightDesaturation: 0, edgeEnergy: 0, meanLuminance: 0, skinSaturation: 0 },
   );
   return {
     specularRatio: sum.specularRatio / n,
@@ -166,6 +177,7 @@ export function averageMetrics(list: WetnessMetrics[]): WetnessMetrics {
     highlightDesaturation: sum.highlightDesaturation / n,
     edgeEnergy: sum.edgeEnergy / n,
     meanLuminance: sum.meanLuminance / n,
+    skinSaturation: sum.skinSaturation / n,
   };
 }
 
@@ -177,6 +189,7 @@ export const FALLBACK_DRY_BASELINE: WetnessMetrics = {
   highlightDesaturation: 0.08,
   edgeEnergy: 0.10,
   meanLuminance: 120,
+  skinSaturation: 0.3,
 };
 
 function sigmoid(x: number): number {
@@ -187,6 +200,11 @@ function sigmoid(x: number): number {
 // Tuned so a genuinely wet face (specular ratio 2-5x baseline, fragmented
 // glints) lands ~0.85-0.95 and a dry face lands ~0.1-0.3.
 export function scoreWetness(now: WetnessMetrics, dry: WetnessMetrics): number {
+  // Liveness / overexposure gates: a blank or blown-out frame (e.g. camera
+  // pointed away under the white screen-flash) has a huge specular ratio and
+  // no chromatic skin. These must never score as wet.
+  if (now.specularRatio > SPECULAR_RATIO_CEILING) return 0;
+  if (now.skinSaturation < MIN_SKIN_SATURATION) return 0;
   if (now.specularRatio < SPECULAR_RATIO_FLOOR) return Math.min(0.3, now.specularRatio / SPECULAR_RATIO_FLOOR * 0.3);
 
   const ratioGain = Math.min(4, now.specularRatio / Math.max(dry.specularRatio, 0.004)); // 1 = unchanged

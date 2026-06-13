@@ -91,8 +91,13 @@ export default function VerifyScreen() {
         return;
       }
 
+      // Require a live face on every wetness frame. Without this, a frame
+      // with no face (under the white screen-flash) reads as bright +
+      // desaturated and scores as "very wet" — a false pass. Passing null
+      // bounds makes processFrame score 0 and reset the hold timer, so any
+      // gap in face presence loses accumulated progress.
       const faceBounds = await detectFaces(photo.uri);
-      if (faceBounds) setFaceBounds(faceBounds);
+      setFaceBounds(faceBounds);
 
       const result = await processFrame(photo.uri, photo.width, photo.height);
 

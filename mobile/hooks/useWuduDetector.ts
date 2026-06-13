@@ -64,9 +64,11 @@ export function useWuduDetector(threshold: number = DEFAULT_THRESHOLD) {
               ? 0
               : scoreWetness(metrics, dryBaselineRef.current);
             console.log(
-              `[wetness] score=${score.toFixed(3)} spec=${metrics.specularRatio.toFixed(4)} glints=${metrics.glintCount.toFixed(2)} desat=${metrics.highlightDesaturation.toFixed(3)} edge=${metrics.edgeEnergy.toFixed(3)} lum=${metrics.meanLuminance.toFixed(0)} | dry spec=${dryBaselineRef.current.specularRatio.toFixed(4)} glints=${dryBaselineRef.current.glintCount.toFixed(2)}`
+              `[wetness] score=${score.toFixed(3)} spec=${metrics.specularRatio.toFixed(4)} glints=${metrics.glintCount.toFixed(2)} desat=${metrics.highlightDesaturation.toFixed(3)} edge=${metrics.edgeEnergy.toFixed(3)} lum=${metrics.meanLuminance.toFixed(0)} skinSat=${metrics.skinSaturation.toFixed(3)} | dry spec=${dryBaselineRef.current.specularRatio.toFixed(4)} glints=${dryBaselineRef.current.glintCount.toFixed(2)}`
             );
           }
+        } else {
+          console.log('[wetness] no face in frame — score 0');
         }
 
         setLowLight(dark);
